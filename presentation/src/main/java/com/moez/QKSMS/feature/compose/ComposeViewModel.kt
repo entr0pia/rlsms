@@ -96,11 +96,13 @@ class ComposeViewModel @Inject constructor(
     private val prefs: Preferences,
     private val retrySending: RetrySending,
     private val sendMessage: SendMessage,
-    private val subscriptionManager: SubscriptionManagerCompat
+    private val subscriptionManager: SubscriptionManagerCompat,
+    @Named("messageId") private val messageId: Long = -1L
 ) : QkViewModel<ComposeView, ComposeState>(ComposeState(
         editingMode = threadId == 0L && addresses.isEmpty(),
         threadId = threadId,
-        query = query)
+        query = query,
+        searchSelectionId = messageId)
 ) {
 
     private val attachments: Subject<List<Attachment>> = BehaviorSubject.createDefault(sharedAttachments)
@@ -109,7 +111,7 @@ class ComposeViewModel @Inject constructor(
     private val messages: Subject<List<Message>> = BehaviorSubject.create()
     private val selectedChips: Subject<List<Recipient>> = BehaviorSubject.createDefault(listOf())
     private val searchResults: Subject<List<Message>> = BehaviorSubject.create()
-    private val searchSelection: Subject<Long> = BehaviorSubject.createDefault(-1)
+    private val searchSelection: Subject<Long> = BehaviorSubject.createDefault(messageId)
 
     private var shouldShowContacts = threadId == 0L && addresses.isEmpty()
 

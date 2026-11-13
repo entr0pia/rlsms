@@ -38,6 +38,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import com.jakewharton.rxbinding2.view.clicks
@@ -89,6 +90,24 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     @Inject lateinit var navigator: Navigator
     @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
 
+    private var targetMessageId: Long = -1L
+
+    private fun checkAndScrollToTarget() {
+        if (targetMessageId == -1L) return
+        val messages = messageAdapter.data?.second ?: return
+        if (!messages.isLoaded || messages.isEmpty()) return
+        val position = messages.indexOfFirst { message -> message.id == targetMessageId }
+        if (position != -1) {
+            targetMessageId = -1L
+            messageList.post {
+                val layoutManager = messageList.layoutManager as? LinearLayoutManager
+                val offset = if (messageList.height > 0) messageList.height / 3 else 0
+                layoutManager?.scrollToPositionWithOffset(position, offset)
+                        ?: messageList.scrollToPosition(position)
+            }
+        }
+    }
+
     override val activityVisibleIntent: Subject<Boolean> = PublishSubject.create()
     override val chipsSelectedIntent: Subject<HashMap<String, String?>> = PublishSubject.create()
     override val chipDeletedIntent: Subject<Recipient> by lazy { chipsAdapter.chipDeleted }
@@ -136,8 +155,22 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         chips.itemAnimator = null
         chips.layoutManager = FlexboxLayoutManager(this)
 
-        messageAdapter.autoScrollToStart(messageList)
+        val isFromSearch = !intent.getStringExtra("query").isNullOrEmpty() || intent.getLongExtra("messageId", -1L) != -1L
+        if (!isFromSearch) {
+            messageAdapter.autoScrollToStart(messageList)
+        }
         messageAdapter.emptyView = messagesEmpty
+
+        targetMessageId = intent.getLongExtra("messageId", -1L)
+        messageAdapter.registerAdapterDataObserver(object : androidx.recyclerview.widget.RecyclerView.AdapterDataObserver() {
+            override fun onChanged() {
+                checkAndScrollToTarget()
+            }
+
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                checkAndScrollToTarget()
+            }
+        })
 
         messageList.setHasFixedSize(true)
         messageList.adapter = messageAdapter
@@ -215,6 +248,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         messageList.setVisible(!state.editingMode || state.sendAsGroup || state.selectedChips.size == 1)
         messageAdapter.data = state.messages
         messageAdapter.highlight = state.searchSelectionId
+        checkAndScrollToTarget()
 
         scheduledGroup.isVisible = state.scheduled != 0L
         scheduledTime.text = dateFormatter.getScheduledTimestamp(state.scheduled)
@@ -330,10 +364,8 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     }
 
     override fun scrollToMessage(id: Long) {
-        messageAdapter.data?.second
-                ?.indexOfLast { message -> message.id == id }
-                ?.takeIf { position -> position != -1 }
-                ?.let(messageList::scrollToPosition)
+        targetMessageId = id
+        checkAndScrollToTarget()
     }
 
     override fun showQksmsPlusSnackbar(message: Int) {

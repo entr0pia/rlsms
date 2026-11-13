@@ -52,7 +52,11 @@ class SearchAdapter @Inject constructor(
         return QkViewHolder(view).apply {
             view.setOnClickListener {
                 val result = getItem(adapterPosition)
-                navigator.showConversation(result.conversation.id, result.query.takeIf { result.messages > 0 })
+                navigator.showConversation(
+                    threadId = result.conversation.id,
+                    query = result.query.takeIf { result.messages > 0 },
+                    messageId = result.message?.id
+                )
             }
         }
     }

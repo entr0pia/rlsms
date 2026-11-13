@@ -102,6 +102,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 scheduled.clicks().map { NavItem.SCHEDULED },
                 blocking.clicks().map { NavItem.BLOCKING },
                 settings.clicks().map { NavItem.SETTINGS },
+                about.clicks().map { NavItem.ABOUT },
                 plus.clicks().map { NavItem.PLUS },
                 help.clicks().map { NavItem.HELP },
                 invite.clicks().map { NavItem.INVITE }))
@@ -245,11 +246,11 @@ class MainActivity : QkThemedActivity(), MainView {
         toolbar.menu.findItem(R.id.block)?.isVisible = selectedConversations != 0
 
         listOf(plusBadge1, plusBadge2).forEach { badge ->
-            badge.isVisible = drawerBadgesExperiment.variant && !state.upgraded
+            badge.isVisible = false
         }
-        plus.isVisible = state.upgraded
-        plusBanner.isVisible = !state.upgraded
-        rateLayout.setVisible(state.showRating)
+        plus.isVisible = false
+        plusBanner.isVisible = false
+        rateLayout.setVisible(false)
 
         compose.setVisible(state.page is Inbox || state.page is Archived)
         conversationsAdapter.emptyView = empty.takeIf { state.page is Inbox || state.page is Archived }

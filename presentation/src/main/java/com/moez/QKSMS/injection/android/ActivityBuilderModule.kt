@@ -93,4 +93,8 @@ abstract class ActivityBuilderModule {
     @ContributesAndroidInjector(modules = [])
     abstract fun bindBlockingActivity(): BlockingActivity
 
+    @ActivityScope
+    @ContributesAndroidInjector(modules = [])
+    abstract fun bindAboutActivity(): com.moez.QKSMS.feature.settings.about.AboutActivity
+
 }

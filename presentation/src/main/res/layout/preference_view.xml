@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:duplicateParentState="true"
-            tools:text="QKSMS is your default SMS app" />
+            tools:text="RLSMS is your default SMS app" />
 
     </LinearLayout>
 

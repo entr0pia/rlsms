@@ -89,7 +89,7 @@ class BackupRepositoryImpl @Inject constructor(
     @Volatile private var stopFlag: Boolean = false
 
     override fun getDefaultBackupPath(): String {
-        return "${Environment.getExternalStorageDirectory()}/QKSMS/Backups"
+        return "${Environment.getExternalStorageDirectory()}/RLSMS/Backups"
     }
 
     override fun getBackupDocumentTree(): DocumentFile? {

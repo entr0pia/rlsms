@@ -75,9 +75,7 @@ class Navigator @Inject constructor(
      * one of [main_menu, compose_schedule, settings_night, settings_theme]
      */
     fun showQksmsPlusActivity(source: String) {
-        analyticsManager.track("Viewed QKSMS+", Pair("source", source))
-        val intent = Intent(context, PlusActivity::class.java)
-        startActivity(intent)
+        // RLSMS+ page removed
     }
 
     /**
@@ -106,10 +104,11 @@ class Navigator @Inject constructor(
         startActivity(intent)
     }
 
-    fun showConversation(threadId: Long, query: String? = null) {
+    fun showConversation(threadId: Long, query: String? = null, messageId: Long? = null) {
         val intent = Intent(context, ComposeActivity::class.java)
                 .putExtra("threadId", threadId)
                 .putExtra("query", query)
+                .putExtra("messageId", messageId ?: -1L)
         startActivity(intent)
     }
 
@@ -141,23 +140,28 @@ class Navigator @Inject constructor(
         startActivity(intent)
     }
 
+    fun showAbout() {
+        val intent = Intent(context, com.moez.QKSMS.feature.settings.about.AboutActivity::class.java)
+        startActivity(intent)
+    }
+
     fun showDeveloper() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/moezbhatti"))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/entr0pia"))
         startActivityExternal(intent)
     }
 
     fun showSourceCode() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/moezbhatti/qksms"))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/entr0pia/rlsms"))
         startActivityExternal(intent)
     }
 
     fun showChangelog() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/moezbhatti/qksms/releases"))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/entr0pia/rlsms/releases"))
         startActivityExternal(intent)
     }
 
     fun showLicense() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/moezbhatti/qksms/blob/master/LICENSE"))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/entr0pia/rlsms/blob/master/LICENSE"))
         startActivityExternal(intent)
     }
 
@@ -178,17 +182,7 @@ class Navigator @Inject constructor(
     }
 
     fun showRating() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.moez.QKSMS"))
-                .addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY
-                        or Intent.FLAG_ACTIVITY_NEW_DOCUMENT
-                        or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-
-        try {
-            startActivityExternal(intent)
-        } catch (e: ActivityNotFoundException) {
-            val url = "http://play.google.com/store/apps/details?id=com.moez.QKSMS"
-            startActivityExternal(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }
+        // Rating prompt removed
     }
 
     /**
@@ -221,8 +215,8 @@ class Navigator @Inject constructor(
     fun showSupport() {
         val intent = Intent(Intent.ACTION_SENDTO)
         intent.data = Uri.parse("mailto:")
-        intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("moez@qklabs.com"))
-        intent.putExtra(Intent.EXTRA_SUBJECT, "QKSMS Support")
+        intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("jiangpeyton@gmail.com"))
+        intent.putExtra(Intent.EXTRA_SUBJECT, "RLSMS Support")
         intent.putExtra(Intent.EXTRA_TEXT, StringBuilder("\n\n")
                 .append("\n\n--- Please write your message above this line ---\n\n")
                 .append("Package: ${context.packageName}\n")
@@ -240,7 +234,7 @@ class Navigator @Inject constructor(
         analyticsManager.track("Clicked Invite")
         Intent(Intent.ACTION_SEND)
                 .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, "http://qklabs.com/download")
+                .putExtra(Intent.EXTRA_TEXT, "https://github.com/entr0pia/rlsms")
                 .let { Intent.createChooser(it, null) }
                 .let(::startActivityExternal)
     }

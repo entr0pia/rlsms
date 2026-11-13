@@ -322,7 +322,8 @@ class MainViewModel @Inject constructor(
                         NavItem.SCHEDULED -> navigator.showScheduled()
                         NavItem.BLOCKING -> navigator.showBlockedConversations()
                         NavItem.SETTINGS -> navigator.showSettings()
-                        NavItem.PLUS -> navigator.showQksmsPlusActivity("main_menu")
+                        NavItem.ABOUT -> navigator.showAbout()
+                        NavItem.PLUS -> Unit
                         NavItem.HELP -> navigator.showSupport()
                         NavItem.INVITE -> navigator.showInvite()
                         else -> Unit
@@ -431,7 +432,6 @@ class MainViewModel @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe {
                     newState { copy(drawerOpen = false) }
-                    navigator.showQksmsPlusActivity("main_banner")
                 }
 
         view.rateIntent

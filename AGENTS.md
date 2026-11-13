@@ -48,14 +48,14 @@ The project adheres strictly to **Clean Architecture** principles separated acro
 
 ## 2. Technical Stack & Environment
 
-- **Languages**: Kotlin `1.3.60` & Java `1.8` (Source/Target Compatibility: 1.8)
-- **Target SDK**: `33` (Android 13) | **Compile SDK**: `33` | **Min SDK**: `21` (Android 5.0 Lollipop)
+- **Languages**: Kotlin `1.7.20` & Java `1.8` (Source/Target Compatibility: 1.8)
+- **Target SDK**: `33` (Android 13) | **Compile SDK**: `33` | **Min SDK**: `23` (Android 6.0 Marshmallow)
 - **Application ID**: `com.entr0pia.RLSMS` | **App Name**: `RLSMS`
-- **Build Tools Version**: `29.0.3` / `33.0.1`
-- **Gradle Version**: `6.0.1` (Android Gradle Plugin: `3.5.4`)
+- **Build Tools Version**: `33.0.1` / `34.0.0`
+- **Gradle Version**: `7.4` (Android Gradle Plugin: `7.3.1`)
 - **Reactive & Async**: RxJava 2 (`2.1.4`), RxKotlin, RxAndroid, RxBinding, AutoDispose (`1.3.0`), Kotlin Coroutines (`1.4.3`)
 - **Dependency Injection**: Dagger 2 (`2.16`) with `dagger-android`
-- **Database**: Realm (`5.8.0`)
+- **Database**: Realm (`10.13.0`)
 - **UI Frameworks**: Conductor (`2.1.5`), AndroidX Material Components, Glide (`4.8.0`), ExoPlayer (`2.8.1`)
 
 ---

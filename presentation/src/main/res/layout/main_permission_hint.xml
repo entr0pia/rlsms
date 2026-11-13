@@ -51,7 +51,7 @@
         app:layout_constraintHorizontal_bias="0"
         app:layout_constraintStart_toStartOf="parent"
         app:textSize="secondary"
-        tools:text="Make QKSMS your default SMS app" />
+        tools:text="Make RLSMS your default SMS app" />
 
     <com.moez.QKSMS.common.widget.QkTextView
         android:id="@+id/snackbarButton"
