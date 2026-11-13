@@ -17,26 +17,26 @@
   ~ You should have received a copy of the GNU General Public License
   ~ along with QKSMS.  If not, see <http://www.gnu.org/licenses/>.
   -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.moez.QKSMS">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <!-- Used for starting foreground service for backup/restore on Android P+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECEIVE_MMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".common.QKApplication"
@@ -177,6 +177,7 @@
                 <action android:name="android.provider.action.EXTERNAL_PROVIDER_CHANGE" />
             </intent-filter>
         </receiver>
+
         <receiver android:name=".receiver.SendScheduledMessageReceiver" />
         <receiver
             android:name=".feature.widget.WidgetProvider"
@@ -197,6 +198,7 @@
         <service
             android:name=".feature.widget.WidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
+
         <service
             android:name=".service.AutoDeleteService"
             android:permission="android.permission.BIND_JOB_SERVICE" />
@@ -214,6 +216,7 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+
         <service
             android:name=".common.util.QkChooserTargetService"
             android:exported="true"
@@ -242,5 +245,13 @@
         </provider>
 
     </application>
+
+    <queries>
+        <package android:name="com.cuiet.blockCalls" />
+        <package android:name="com.flexaspect.android.everycallcontrol" />
+        <package android:name="org.mistergroup.muzutozvednout" />
+        <package android:name="org.mistergroup.shouldianswer" />
+        <package android:name="org.mistergroup.shouldianswerpersonal" />
+    </queries>
 
 </manifest>

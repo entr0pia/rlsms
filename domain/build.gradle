@@ -31,12 +31,15 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 33
     }
+    namespace 'com.moez.QKSMS.domain'
 }
 
 dependencies {
+    // androidx
+    implementation "androidx.documentfile:documentfile:$androidx_documentfile_version"
 
     // dagger
     implementation "com.google.dagger:dagger:$dagger_version"
