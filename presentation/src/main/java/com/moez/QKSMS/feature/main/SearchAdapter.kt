@@ -58,10 +58,9 @@ class SearchAdapter @Inject constructor(
     }
 
     override fun onBindViewHolder(holder: QkViewHolder, position: Int) {
-        val previous = data.getOrNull(position - 1)
         val result = getItem(position)
 
-        holder.resultsHeader.setVisible(result.messages > 0 && previous?.messages == 0)
+        holder.resultsHeader.setVisible(false)
 
         val query = result.query
         val title = SpannableString(result.conversation.getTitle())
@@ -75,30 +74,41 @@ class SearchAdapter @Inject constructor(
 
         holder.avatars.recipients = result.conversation.recipients
 
-        when (result.messages == 0) {
-            true -> {
-                holder.date.setVisible(true)
-                holder.date.text = dateFormatter.getConversationTimestamp(result.conversation.date)
-                holder.snippet.text = when (result.conversation.me) {
-                    true -> context.getString(R.string.main_sender_you, result.conversation.snippet)
-                    false -> result.conversation.snippet
-                }
-            }
-
-            false -> {
-                holder.date.setVisible(false)
-                holder.snippet.text = context.getString(R.string.main_message_results, result.messages)
-            }
+        holder.date.setVisible(result.date > 0)
+        if (result.date > 0) {
+            holder.date.text = dateFormatter.getConversationTimestamp(result.date)
         }
+
+        val rawSnippet = when {
+            result.message != null -> result.snippet
+            result.conversation.me -> context.getString(R.string.main_sender_you, result.snippet)
+            else -> result.snippet
+        }
+
+        val snippetSpannable = SpannableString(rawSnippet)
+        var snippetIndex = snippetSpannable.removeAccents().indexOf(query, ignoreCase = true)
+        while (snippetIndex >= 0) {
+            snippetSpannable.setSpan(
+                BackgroundColorSpan(highlightColor),
+                snippetIndex,
+                snippetIndex + query.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            snippetIndex = snippetSpannable.indexOf(query, snippetIndex + query.length, true)
+        }
+        holder.snippet.text = snippetSpannable
     }
 
     override fun areItemsTheSame(old: SearchResult, new: SearchResult): Boolean {
-        return old.conversation.id == new.conversation.id && old.messages > 0 == new.messages > 0
+        return old.conversation.id == new.conversation.id && old.message?.id == new.message?.id
     }
 
     override fun areContentsTheSame(old: SearchResult, new: SearchResult): Boolean {
-        return old.query == new.query && // Queries are the same
-                old.conversation.id == new.conversation.id // Conversation id is the same
-                && old.messages == new.messages // Result count is the same
+        return old.query == new.query &&
+                old.conversation.id == new.conversation.id &&
+                old.message?.id == new.message?.id &&
+                old.date == new.date &&
+                old.snippet == new.snippet &&
+                old.conversation.getTitle() == new.conversation.getTitle()
     }
 }

@@ -23,52 +23,26 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:orientation="horizontal">
-
-    <androidx.constraintlayout.widget.Group
-        android:id="@+id/resultsHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:constraint_referenced_ids="resultsSeparator, resultsTitle" />
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="10dp">
 
     <View
-        android:id="@+id/resultsSeparator"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:background="?android:attr/divider"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.moez.QKSMS.common.widget.QkTextView
-        android:id="@+id/resultsTitle"
+        android:id="@+id/resultsHeader"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:text="@string/main_message_results_title"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="0dp"
+        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/resultsSeparator"
-        app:textSize="secondary" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.moez.QKSMS.common.widget.GroupAvatarView
         android:id="@+id/avatars"
         android:layout_width="56dp"
         android:layout_height="56dp"
-        android:layout_gravity="top"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/resultsTitle"
-        app:layout_constraintVertical_bias="0"
-        app:layout_constraintVertical_chainStyle="packed" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.moez.QKSMS.common.widget.QkTextView
         android:id="@+id/title"
@@ -76,39 +50,37 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:lines="1"
         app:layout_constraintBottom_toTopOf="@id/snippet"
         app:layout_constraintEnd_toStartOf="@id/date"
         app:layout_constraintStart_toEndOf="@id/avatars"
-        app:layout_constraintTop_toBottomOf="@id/resultsTitle"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
         tools:text="@tools:sample/full_names" />
-
-    <com.moez.QKSMS.common.widget.QkTextView
-        android:id="@+id/snippet"
-        style="@style/TextSecondary"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:layout_marginEnd="16dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="@id/title"
-        app:layout_constraintTop_toBottomOf="@id/title"
-        tools:text="@tools:sample/lorem/random" />
 
     <com.moez.QKSMS.common.widget.QkTextView
         android:id="@+id/date"
         style="@style/TextTertiary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:gravity="center_vertical"
-        app:layout_constraintBottom_toBottomOf="@id/title"
+        app:layout_constraintBaseline_toBaselineOf="@id/title"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="100"
         tools:text="Oct 11" />
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/snippet"
+        style="@style/TextSecondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/title"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        tools:text="@tools:sample/lorem/random" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -46,8 +46,10 @@ import com.moez.QKSMS.util.Preferences
 import com.uber.autodispose.android.lifecycle.scope
 import com.uber.autodispose.autoDisposable
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.rxkotlin.Observables
 import io.reactivex.rxkotlin.plusAssign
 import io.reactivex.rxkotlin.withLatestFrom
+import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.schedulers.Schedulers
 import io.realm.Realm
 import kotlinx.coroutines.Dispatchers
@@ -187,28 +189,48 @@ class MainViewModel @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe { navigator.showChangelog() }
 
+        val querySubject = BehaviorSubject.createDefault("")
+        val expandSubject = BehaviorSubject.createDefault(false)
+
         view.queryChangedIntent
                 .debounce(200, TimeUnit.MILLISECONDS)
                 .observeOn(AndroidSchedulers.mainThread())
                 .withLatestFrom(state) { query, state ->
-                    if (query.isEmpty() && state.page is Searching) {
-                        newState { copy(page = Inbox(data = conversationRepo.getConversations())) }
+                    val trimmed = query.toString().trim()
+                    if (trimmed.isEmpty()) {
+                        querySubject.onNext("")
+                        if (state.page is Searching) {
+                            newState { copy(page = Inbox(data = conversationRepo.getConversations())) }
+                        }
+                    } else {
+                        querySubject.onNext(trimmed)
                     }
-                    query
                 }
-                .filter { query -> query.length >= 2 }
-                .map { query -> query.trim() }
+                .autoDisposable(view.scope())
+                .subscribe()
+
+        view.searchModeToggleIntent
+                .withLatestFrom(expandSubject) { _, expand -> !expand }
+                .autoDisposable(view.scope())
+                .subscribe { expandSubject.onNext(it) }
+
+        Observables.combineLatest(querySubject, expandSubject) { q, expand -> Pair(q, expand) }
                 .distinctUntilChanged()
-                .doOnNext {
+                .filter { (query, _) -> query.length >= 2 }
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext { (_, expand) ->
                     newState {
                         val page = (page as? Searching) ?: Searching()
-                        copy(page = page.copy(loading = true))
+                        copy(page = page.copy(loading = true, expandMessages = expand))
                     }
                 }
                 .observeOn(Schedulers.io())
-                .map(conversationRepo::searchConversations)
+                .map { (query, expand) -> Pair(conversationRepo.searchConversations(query, expand), expand) }
+                .observeOn(AndroidSchedulers.mainThread())
                 .autoDisposable(view.scope())
-                .subscribe { data -> newState { copy(page = Searching(loading = false, data = data)) } }
+                .subscribe { (data, expand) ->
+                    newState { copy(page = Searching(loading = false, data = data, expandMessages = expand)) }
+                }
 
         view.activityResumedIntent
                 .filter { resumed -> !resumed }
@@ -231,7 +253,10 @@ class MainViewModel @Inject constructor(
         view.homeIntent
                 .withLatestFrom(state) { _, state ->
                     when {
-                        state.page is Searching -> view.clearSearch()
+                        state.page is Searching -> {
+                            querySubject.onNext("")
+                            view.clearSearch()
+                        }
                         state.page is Inbox && state.page.selected > 0 -> view.clearSelection()
                         state.page is Archived && state.page.selected > 0 -> view.clearSelection()
 
@@ -251,7 +276,10 @@ class MainViewModel @Inject constructor(
                     when (drawerItem) {
                         NavItem.BACK -> when {
                             state.drawerOpen -> Unit
-                            state.page is Searching -> view.clearSearch()
+                            state.page is Searching -> {
+                                querySubject.onNext("")
+                                view.clearSearch()
+                            }
                             state.page is Inbox && state.page.selected > 0 -> view.clearSelection()
                             state.page is Archived && state.page.selected > 0 -> view.clearSelection()
                             state.page !is Inbox -> {

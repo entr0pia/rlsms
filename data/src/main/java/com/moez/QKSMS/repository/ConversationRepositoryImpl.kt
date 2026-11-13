@@ -129,7 +129,7 @@ class ConversationRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun searchConversations(query: CharSequence): List<SearchResult> {
+    override fun searchConversations(query: CharSequence, expandMessages: Boolean): List<SearchResult> {
         val realm = Realm.getDefaultInstance()
 
         val normalizedQuery = query.removeAccents()
@@ -142,27 +142,67 @@ class ConversationRepositoryImpl @Inject constructor(
                 .sort("pinned", Sort.DESCENDING, "lastMessage.date", Sort.DESCENDING)
                 .findAll())
 
-        val messagesByConversation = realm.copyFromRealm(realm
+        val matchingMessages = realm.copyFromRealm(realm
                 .where(Message::class.java)
                 .beginGroup()
                 .contains("body", normalizedQuery, Case.INSENSITIVE)
                 .or()
                 .contains("parts.text", normalizedQuery, Case.INSENSITIVE)
                 .endGroup()
+                .sort("date", Sort.DESCENDING)
                 .findAll())
-                .asSequence()
-                .groupBy { message -> message.threadId }
-                .filter { (threadId, _) -> conversations.firstOrNull { it.id == threadId } != null }
-                .map { (threadId, messages) -> Pair(conversations.first { it.id == threadId }, messages.size) }
-                .map { (conversation, messages) -> SearchResult(normalizedQuery, conversation, messages) }
-                .sortedByDescending { result -> result.messages }
-                .toList()
+
+        val conversationsMap = conversations.associateBy { it.id }
+
+        val messagesResults = if (expandMessages) {
+            matchingMessages
+                    .asSequence()
+                    .filter { message -> conversationsMap.containsKey(message.threadId) }
+                    .map { message ->
+                        SearchResult(
+                                query = normalizedQuery,
+                                conversation = conversationsMap.getValue(message.threadId),
+                                messages = 1,
+                                message = message
+                        )
+                    }
+                    .toList()
+        } else {
+            matchingMessages
+                    .asSequence()
+                    .groupBy { it.threadId }
+                    .filter { (threadId, _) -> conversationsMap.containsKey(threadId) }
+                    .map { (threadId, msgs) ->
+                        val latestMessage = msgs.maxBy { it.date } ?: msgs.first()
+                        SearchResult(
+                                query = normalizedQuery,
+                                conversation = conversationsMap.getValue(threadId),
+                                messages = msgs.size,
+                                message = latestMessage
+                        )
+                    }
+                    .toList()
+        }
+
+        val matchingThreadIds = messagesResults.map { it.conversation.id }.toSet()
+
+        val contactResults = conversations
+                .filter { conversation ->
+                    !matchingThreadIds.contains(conversation.id) &&
+                    conversationFilter.filter(conversation, normalizedQuery)
+                }
+                .map { conversation ->
+                    SearchResult(
+                            query = normalizedQuery,
+                            conversation = conversation,
+                            messages = 0,
+                            message = null
+                    )
+                }
 
         realm.close()
 
-        return conversations
-                .filter { conversation -> conversationFilter.filter(conversation, normalizedQuery) }
-                .map { conversation -> SearchResult(normalizedQuery, conversation, 0) } + messagesByConversation
+        return (contactResults + messagesResults).sortedByDescending { it.date }
     }
 
     override fun getBlockedConversations(): RealmResults<Conversation> {

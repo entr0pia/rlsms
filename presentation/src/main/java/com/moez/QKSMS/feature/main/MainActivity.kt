@@ -85,6 +85,7 @@ class MainActivity : QkThemedActivity(), MainView {
     override val onNewIntentIntent: Subject<Intent> = PublishSubject.create()
     override val activityResumedIntent: Subject<Boolean> = PublishSubject.create()
     override val queryChangedIntent by lazy { toolbarSearch.textChanges() }
+    override val searchModeToggleIntent by lazy { searchModeToggle.clicks() }
     override val composeIntent by lazy { compose.clicks() }
     override val drawerOpenIntent: Observable<Boolean> by lazy {
         drawerLayout
@@ -227,8 +228,16 @@ class MainActivity : QkThemedActivity(), MainView {
             else -> 0
         }
 
-        toolbarSearch.setVisible(state.page is Inbox && state.page.selected == 0 || state.page is Searching)
-        toolbarTitle.setVisible(toolbarSearch.visibility != View.VISIBLE)
+        val isSearching = state.page is Searching
+        toolbarSearchContainer.setVisible(state.page is Inbox && state.page.selected == 0 || isSearching)
+        toolbarTitle.setVisible(toolbarSearchContainer.visibility != View.VISIBLE)
+        searchModeToggle.setVisible(isSearching)
+        if (state.page is Searching) {
+            searchModeToggle.setImageResource(
+                if (state.page.expandMessages) R.drawable.ic_unfold_less_black_24dp
+                else R.drawable.ic_unfold_more_black_24dp
+            )
+        }
 
         toolbar.menu.findItem(R.id.archive)?.isVisible = state.page is Inbox && selectedConversations != 0
         toolbar.menu.findItem(R.id.unarchive)?.isVisible = state.page is Archived && selectedConversations != 0
