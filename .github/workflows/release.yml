@@ -39,23 +39,57 @@ jobs:
       - name: Build noAnalytics Release APK
         run: ./gradlew :presentation:assembleNoAnalyticsRelease --stacktrace
 
-      - name: Setup build tool version
-        run: |
-          BUILD_TOOLS_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | sort -V | tail -n 1)
-          echo "BUILD_TOOLS_VERSION=$BUILD_TOOLS_VERSION" >> $GITHUB_ENV
-          echo "Using Android Build Tools version: $BUILD_TOOLS_VERSION"
-
-      - name: Sign Android Release
-        uses: r0adkll/sign-android-release@v1
+      - name: Sign & Align Android Release APK
         id: sign_app
-        with:
-          releaseDirectory: presentation/build/outputs/apk/noAnalytics/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
-          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          APK_DIR="presentation/build/outputs/apk/noAnalytics/release"
+          UNSIGNED_APK=$(find "$APK_DIR" -name "*unsigned.apk" | head -n 1)
+          if [ -z "$UNSIGNED_APK" ]; then
+            UNSIGNED_APK=$(find "$APK_DIR" -name "*.apk" | head -n 1)
+          fi
+          
+          echo "Found unsigned APK: $UNSIGNED_APK"
+          ALIGNED_APK="${UNSIGNED_APK%.apk}-aligned.apk"
+          SIGNED_APK="${UNSIGNED_APK%-unsigned.apk}-signed.apk"
+          
+          # 1. 解码并还原 Keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > "$APK_DIR/signingKey.jks"
+          
+          # 2. 定位最新的 Android build-tools
+          BUILD_TOOLS_DIR=$(ls -d /usr/local/lib/android/sdk/build-tools/* | sort -V | tail -n 1)
+          echo "Using Android Build Tools from: $BUILD_TOOLS_DIR"
+          
+          # 3. Zipalign 对齐
+          echo "Running zipalign..."
+          "$BUILD_TOOLS_DIR/zipalign" -v -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+          
+          # 4. 自动识别 PrivateKeyEntry 别名
+          DETECTED_ALIAS=$(keytool -list -v -keystore "$APK_DIR/signingKey.jks" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -B 2 "PrivateKeyEntry" | grep "Alias name:" | sed 's/Alias name: //' | head -n 1 || true)
+          SIGNING_ALIAS="${DETECTED_ALIAS:-$KEY_ALIAS}"
+          echo "Signing with Alias: $SIGNING_ALIAS"
+          
+          # 5. 使用 apksigner 签名（显式声明 --ks-type PKCS12）
+          echo "Running apksigner..."
+          "$BUILD_TOOLS_DIR/apksigner" sign \
+            --ks "$APK_DIR/signingKey.jks" \
+            --ks-type PKCS12 \
+            --ks-key-alias "$SIGNING_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+          
+          # 6. 验证签名有效性
+          echo "Verifying signed APK..."
+          "$BUILD_TOOLS_DIR/apksigner" verify -v "$SIGNED_APK"
+          
+          echo "signedReleaseFile=$SIGNED_APK" >> $GITHUB_OUTPUT
+          rm -f "$APK_DIR/signingKey.jks" "$ALIGNED_APK"
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
