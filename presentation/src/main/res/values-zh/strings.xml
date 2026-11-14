@@ -26,7 +26,7 @@
     <string name="title_notification_prefs">通知</string>
     <string name="title_theme">主題</string>
     <string name="title_conversations">在收件箱中搜索...</string>
-    <string name="title_compose">編輯</string>
+    <string name="title_compose">搜尋聯絡人或輸入號碼</string>
     <string name="setup_skip">跳過</string>
     <string name="setup_next">繼續</string>
     <string name="menu_add_person">增加傳送人</string>

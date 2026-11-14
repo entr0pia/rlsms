@@ -115,6 +115,12 @@ class MainViewModel @Inject constructor(
         // Migrate the preferences from 2.7.3
         migratePreferences.execute(Unit)
 
+        // Migrate legacy default cyan theme (#0097A7) or previous hot pink (#F43389) to new balanced pink (#EA5296)
+        val currentTheme = prefs.theme().get()
+        if (currentTheme == 0xFF0097A7.toInt() || currentTheme == 0xFFF43389.toInt()) {
+            prefs.theme().set(0xFFEA5296.toInt())
+        }
+
 
         // If we have all permissions and we've never run a sync, run a sync. This will be the case
         // when upgrading from 2.7.3, or if the app's data was cleared
