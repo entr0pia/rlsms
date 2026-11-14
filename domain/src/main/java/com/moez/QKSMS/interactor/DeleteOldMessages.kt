@@ -29,10 +29,10 @@ class DeleteOldMessages @Inject constructor(
     private val conversationRepo: ConversationRepository,
     private val messageRepo: MessageRepository,
     private val prefs: Preferences
-) : Interactor<Unit>() {
+) : Interactor<Int?>() {
 
-    override fun buildObservable(params: Unit): Flowable<*> = Flowable.fromCallable {
-        val maxAge = prefs.autoDelete.get().takeIf { it > 0 } ?: return@fromCallable
+    override fun buildObservable(params: Int?): Flowable<*> = Flowable.fromCallable {
+        val maxAge = (params?.takeIf { it > 0 } ?: prefs.autoDelete.get()).takeIf { it > 0 } ?: return@fromCallable
         val counts = messageRepo.getOldMessageCounts(maxAge)
         val threadIds = counts.keys.toLongArray()
 

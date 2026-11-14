@@ -28,9 +28,14 @@ import javax.inject.Inject
 class BootReceiver : BroadcastReceiver() {
 
     @Inject lateinit var updateScheduledMessageAlarms: UpdateScheduledMessageAlarms
+    @Inject lateinit var prefs: com.moez.QKSMS.util.Preferences
 
     override fun onReceive(context: Context, intent: Intent?) {
         AndroidInjection.inject(this, context)
+
+        if (prefs.autoDelete.get() > 0) {
+            com.moez.QKSMS.service.AutoDeleteService.scheduleJob(context)
+        }
 
         val result = goAsync()
         updateScheduledMessageAlarms.execute(Unit) { result.finish() }

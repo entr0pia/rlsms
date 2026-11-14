@@ -27,6 +27,7 @@ import com.moez.QKSMS.common.Navigator
 import com.moez.QKSMS.common.base.QkViewModel
 import com.moez.QKSMS.extensions.mapNotNull
 import com.moez.QKSMS.interactor.DeleteConversations
+import com.moez.QKSMS.interactor.DeleteOldMessages
 import com.moez.QKSMS.interactor.MarkAllSeen
 import com.moez.QKSMS.interactor.MarkArchived
 import com.moez.QKSMS.interactor.MarkPinned
@@ -71,6 +72,7 @@ class MainViewModel @Inject constructor(
     private val changelogManager: ChangelogManager,
     private val conversationRepo: ConversationRepository,
     private val deleteConversations: DeleteConversations,
+    private val deleteOldMessages: DeleteOldMessages,
     private val markArchived: MarkArchived,
     private val markPinned: MarkPinned,
     private val markRead: MarkRead,
@@ -87,6 +89,7 @@ class MainViewModel @Inject constructor(
 
     init {
         disposables += deleteConversations
+        disposables += deleteOldMessages
         disposables += markAllSeen
         disposables += markArchived
         disposables += markUnarchived
@@ -130,6 +133,10 @@ class MainViewModel @Inject constructor(
 
         ratingManager.addSession()
         markAllSeen.execute(Unit)
+
+        if (prefs.autoDelete.get() > 0 && permissionManager.isDefaultSms()) {
+            deleteOldMessages.execute(null)
+        }
     }
 
     override fun bindView(view: MainView) {

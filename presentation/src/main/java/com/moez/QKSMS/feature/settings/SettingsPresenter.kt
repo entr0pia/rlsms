@@ -273,16 +273,16 @@ class SettingsPresenter @Inject constructor(
 
                     runBlocking { view.showAutoDeleteWarningDialog(counts.values.sum()) }
                 }
+                .doOnNext(prefs.autoDelete::set)
                 .doOnNext { maxAge ->
                     when (maxAge == 0) {
                         true -> AutoDeleteService.cancelJob(context)
                         false -> {
                             AutoDeleteService.scheduleJob(context)
-                            deleteOldMessages.execute(Unit)
+                            deleteOldMessages.execute(maxAge)
                         }
                     }
                 }
-                .doOnNext(prefs.autoDelete::set)
                 .autoDisposable(view.scope())
                 .subscribe()
 

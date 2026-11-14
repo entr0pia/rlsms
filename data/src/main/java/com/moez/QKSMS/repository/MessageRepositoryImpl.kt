@@ -351,7 +351,15 @@ class MessageRepositoryImpl @Inject constructor(
                 val intent = getIntentForDelayedSms(message.id)
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                    } else {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                    }
+                } catch (e: SecurityException) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                }
             } else { // No delay
                 val message = insertSentSms(subId, threadId, addresses.first(), strippedBody, now())
                 sendSms(message)
@@ -748,7 +756,9 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun getOldMessageCounts(maxAgeDays: Int): Map<Long, Int> {
         return Realm.getDefaultInstance().use { realm ->
+            realm.refresh()
             realm.where(Message::class.java)
+                    .equalTo("locked", false)
                     .lessThan("date", now() - TimeUnit.DAYS.toMillis(maxAgeDays.toLong()))
                     .findAll()
                     .groupingBy { message -> message.threadId }
@@ -758,7 +768,9 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun deleteOldMessages(maxAgeDays: Int) {
         return Realm.getDefaultInstance().use { realm ->
+            realm.refresh()
             val messages = realm.where(Message::class.java)
+                    .equalTo("locked", false)
                     .lessThan("date", now() - TimeUnit.DAYS.toMillis(maxAgeDays.toLong()))
                     .findAll()
 
@@ -766,7 +778,7 @@ class MessageRepositoryImpl @Inject constructor(
 
             realm.executeTransaction { messages.deleteAllFromRealm() }
 
-            uris.forEach { uri -> context.contentResolver.delete(uri, null, null) }
+            uris.forEach { uri -> tryOrNull { context.contentResolver.delete(uri, null, null) } }
         }
     }
 }
