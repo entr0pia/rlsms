@@ -74,11 +74,14 @@ android {
     }
     namespace 'com.moez.QKSMS'
 
-    if (System.getenv("CI") == "true") {
-        signingConfigs.release.storeFile = file("../keystore")
+    def keystoreFile = file("../keystore")
+    if (keystoreFile.exists()) {
+        signingConfigs.release.storeFile = keystoreFile
         signingConfigs.release.storePassword = System.getenv("keystore_password")
         signingConfigs.release.keyAlias = System.getenv("key_alias")
         signingConfigs.release.keyPassword = System.getenv("key_password")
+    } else {
+        buildTypes.release.signingConfig = null
     }
 }
 
