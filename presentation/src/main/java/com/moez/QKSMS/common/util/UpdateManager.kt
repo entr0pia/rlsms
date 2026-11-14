@@ -10,6 +10,7 @@ import com.moez.QKSMS.common.widget.QkDialog
 import io.reactivex.Single
 import io.reactivex.schedulers.Schedulers
 import org.json.JSONObject
+import timber.log.Timber
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -32,52 +33,103 @@ class UpdateManager @Inject constructor(
 
     fun checkForUpdate(): Single<UpdateInfo> {
         return Single.fromCallable {
-            val endpoint = URL("https://api.github.com/repos/entr0pia/rlsms/releases/latest")
-            val conn = endpoint.openConnection() as HttpURLConnection
-            conn.apply {
-                requestMethod = "GET"
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("User-Agent", "RLSMS-Android")
-                setRequestProperty("Accept", "application/vnd.github.v3+json")
-            }
-
-            val responseCode = conn.responseCode
-            if (responseCode !in 200..299) {
-                throw IllegalStateException("GitHub API returned $responseCode")
-            }
-
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val response = reader.use { it.readText() }
-            val json = JSONObject(response)
-
-            val tagName = json.optString("tag_name", "").trim()
-            val releaseName = json.optString("name", tagName)
-            val body = json.optString("body", "").trim()
-            val htmlUrl = json.optString("html_url", "https://github.com/entr0pia/rlsms/releases")
-            var downloadUrl = htmlUrl
-
-            val assets = json.optJSONArray("assets")
-            if (assets != null) {
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    val assetName = asset.optString("name", "")
-                    if (assetName.endsWith(".apk", ignoreCase = true)) {
-                        downloadUrl = asset.optString("browser_download_url", htmlUrl)
-                        break
-                    }
+            try {
+                fetchFromApi()
+            } catch (apiError: Throwable) {
+                Timber.w(apiError, "GitHub API fetch failed, falling back to releases/latest redirect")
+                try {
+                    fetchFromWebRedirect()
+                } catch (redirectError: Throwable) {
+                    Timber.e(redirectError, "Web redirect check failed as well")
+                    throw redirectError
                 }
             }
-
-            val hasUpdate = isNewerVersion(BuildConfig.VERSION_NAME, tagName)
-            UpdateInfo(
-                hasUpdate = hasUpdate,
-                latestTag = tagName,
-                releaseName = releaseName,
-                changelog = body,
-                downloadUrl = downloadUrl
-            )
         }.subscribeOn(Schedulers.io())
+    }
+
+    private fun fetchFromApi(): UpdateInfo {
+        val endpoint = URL("https://api.github.com/repos/entr0pia/rlsms/releases/latest")
+        val conn = (endpoint.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 8000
+            readTimeout = 8000
+            setRequestProperty("User-Agent", "RLSMS-Android")
+            setRequestProperty("Accept", "application/vnd.github.v3+json")
+        }
+
+        val responseCode = conn.responseCode
+        if (responseCode !in 200..299) {
+            throw IllegalStateException("GitHub API returned $responseCode")
+        }
+
+        val response = conn.inputStream.bufferedReader().use { it.readText() }
+        val json = JSONObject(response)
+
+        val tagName = json.optString("tag_name", "").trim()
+        val releaseName = json.optString("name", tagName)
+        val body = json.optString("body", "").trim()
+        val htmlUrl = json.optString("html_url", "https://github.com/entr0pia/rlsms/releases")
+        var downloadUrl = htmlUrl
+
+        val assets = json.optJSONArray("assets")
+        if (assets != null) {
+            for (i in 0 until assets.length()) {
+                val asset = assets.getJSONObject(i)
+                val assetName = asset.optString("name", "")
+                if (assetName.endsWith(".apk", ignoreCase = true)) {
+                    downloadUrl = asset.optString("browser_download_url", htmlUrl)
+                    break
+                }
+            }
+        }
+
+        val hasUpdate = isNewerVersion(BuildConfig.VERSION_NAME, tagName)
+        return UpdateInfo(
+            hasUpdate = hasUpdate,
+            latestTag = tagName,
+            releaseName = releaseName,
+            changelog = body,
+            downloadUrl = downloadUrl
+        )
+    }
+
+    private fun fetchFromWebRedirect(): UpdateInfo {
+        val endpoint = URL("https://github.com/entr0pia/rlsms/releases/latest")
+        val conn = (endpoint.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            instanceFollowRedirects = false
+            connectTimeout = 10000
+            readTimeout = 10000
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:100.0) Gecko/100.0 Firefox/100.0")
+        }
+
+        val responseCode = conn.responseCode
+        var targetLocation = conn.getHeaderField("Location") ?: ""
+
+        if (responseCode in 300..399 && targetLocation.isNotBlank()) {
+            // Example targetLocation: https://github.com/entr0pia/rlsms/releases/tag/v3.11
+        } else if (responseCode == 200) {
+            targetLocation = conn.url.toString()
+        } else {
+            throw IllegalStateException("GitHub releases/latest returned $responseCode")
+        }
+
+        val tagName = targetLocation.substringAfterLast("/").trim()
+        if (tagName.isBlank() || tagName == "latest") {
+            throw IllegalStateException("Failed to parse tag name from location: $targetLocation")
+        }
+
+        val cleanTag = tagName
+        val apkDownloadUrl = "https://github.com/entr0pia/rlsms/releases/download/$cleanTag/RLSMS-$cleanTag-noAnalytics-release.apk"
+        val hasUpdate = isNewerVersion(BuildConfig.VERSION_NAME, cleanTag)
+
+        return UpdateInfo(
+            hasUpdate = hasUpdate,
+            latestTag = cleanTag,
+            releaseName = "Release $cleanTag",
+            changelog = "",
+            downloadUrl = apkDownloadUrl
+        )
     }
 
     fun showUpdateDialog(activity: Activity, updateInfo: UpdateInfo) {

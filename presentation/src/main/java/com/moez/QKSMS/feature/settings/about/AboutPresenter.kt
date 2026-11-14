@@ -25,6 +25,7 @@ import com.moez.QKSMS.common.util.UpdateManager
 import com.uber.autodispose.android.lifecycle.scope
 import com.uber.autodispose.autoDisposable
 import io.reactivex.android.schedulers.AndroidSchedulers
+import timber.log.Timber
 import javax.inject.Inject
 
 class AboutPresenter @Inject constructor(
@@ -53,6 +54,7 @@ class AboutPresenter @Inject constructor(
                                             updateManager.showNoUpdateDialog(activity)
                                         }
                                     }, { error ->
+                                        Timber.e(error, "Check for update failed")
                                         view.setUpdateProgressVisible(false)
                                         val activity = (view as? AboutController)?.activity ?: return@subscribe
                                         updateManager.showCheckUpdateErrorDialog(activity)

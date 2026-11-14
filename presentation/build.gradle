@@ -30,12 +30,10 @@ android {
         applicationId "com.entr0pia.RLSMS"
         minSdkVersion 23
         targetSdkVersion 33
-        versionCode 2230
-        versionName "3.11"
+        versionCode 2231
+        versionName "3.11.1"
         setProperty("archivesBaseName", "RLSMS-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
-        setProperty("archivesBaseName", "RLSMS-v${versionName}")
     }
 
     Properties localProps = new Properties()
