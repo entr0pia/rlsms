@@ -39,17 +39,23 @@ jobs:
       - name: Build noAnalytics Release APK
         run: ./gradlew :presentation:assembleNoAnalyticsRelease --stacktrace
 
+      - name: Setup build tool version
+        run: |
+          BUILD_TOOLS_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | sort -V | tail -n 1)
+          echo "BUILD_TOOLS_VERSION=$BUILD_TOOLS_VERSION" >> $GITHUB_ENV
+          echo "Using Android Build Tools version: $BUILD_TOOLS_VERSION"
+
       - name: Sign Android Release
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
           releaseDirectory: presentation/build/outputs/apk/noAnalytics/release
-          signingKey: ${{ secrets.KEYSTORE_BASE64 }}
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
-          BUILD_TOOLS_VERSION: "33.0.1"
+          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
