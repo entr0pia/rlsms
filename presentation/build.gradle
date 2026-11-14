@@ -30,24 +30,52 @@ android {
         applicationId "com.entr0pia.RLSMS"
         minSdkVersion 23
         targetSdkVersion 33
-        versionCode 2220
-        versionName "3.10.1"
+        versionCode 2230
+        versionName "3.11"
         setProperty("archivesBaseName", "RLSMS-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         setProperty("archivesBaseName", "RLSMS-v${versionName}")
     }
 
+    Properties localProps = new Properties()
+    File localPropsFile = rootProject.file('local.properties')
+    if (localPropsFile.exists()) {
+        localProps.load(new FileInputStream(localPropsFile))
+    }
+
     signingConfigs {
-        release
+        release {
+            def storePath = localProps.getProperty('RELEASE_STORE_FILE')
+            if (storePath && file(storePath).exists()) {
+                storeFile file(storePath)
+                storePassword localProps.getProperty('RELEASE_STORE_PASSWORD')
+                keyAlias localProps.getProperty('RELEASE_KEY_ALIAS')
+                keyPassword localProps.getProperty('RELEASE_KEY_PASSWORD')
+            } else if (file("../keystore").exists()) {
+                storeFile file("../keystore")
+                storePassword System.getenv("keystore_password")
+                keyAlias System.getenv("key_alias")
+                keyPassword System.getenv("key_password")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig null
+            }
         }
     }
 
@@ -73,31 +101,10 @@ android {
         abortOnError false
     }
     namespace 'com.moez.QKSMS'
-
-    def keystoreFile = file("../keystore")
-    if (keystoreFile.exists()) {
-        signingConfigs.release.storeFile = keystoreFile
-        signingConfigs.release.storePassword = System.getenv("keystore_password")
-        signingConfigs.release.keyAlias = System.getenv("key_alias")
-        signingConfigs.release.keyPassword = System.getenv("key_password")
-    } else {
-        buildTypes.release.signingConfig = null
-    }
 }
 
-afterEvaluate {
-    tasks.matching { it.name.contains("strip") || it.name.contains("Strip") }.configureEach {
-        enabled = false
-    }
-    tasks.matching { it.name.startsWith("package") }.configureEach { task ->
-        task.doFirst {
-            copy {
-                from "${buildDir}/intermediates/merged_native_libs"
-                into "${buildDir}/intermediates/stripped_native_libs"
-            }
-        }
-    }
-}
+// Note: AGP 7.3+ handles native libs properly with doNotStrip in packagingOptions.
+// Legacy AGP 3.5 hack disabled to prevent empty native libs in Release build.
 
 androidExtensions {
     experimental = true

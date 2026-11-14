@@ -173,8 +173,8 @@ All commands below assume execution from the repository root using the Gradle Wr
      .\gradlew.bat :presentation:assembleNoAnalyticsDebug
      ```
 2. **NDK & JNI Symbol Stripping**:
-   - Modern Android SDK NDKs (v23+) removed the deprecated GCC toolchain (`arm-linux-androideabi-strip`), which AGP 3.5.4 expects.
-   - The project configuration disables GCC symbol stripping and automatically copies native libraries (`librealm-jni.so`) from `merged_native_libs` to `stripped_native_libs` before packaging in `presentation/build.gradle`, ensuring native libraries are never omitted from APKs.
+   - In AGP 7.3+, do not disable `strip*DebugSymbols` tasks with `enabled = false` in `afterEvaluate`, because Gradle task dependencies will consider the native output empty, resulting in `librealm-jni.so` being omitted from Release APKs.
+   - Using `packagingOptions { doNotStrip '**/*.so' }` allows AGP to properly package all native libraries into Release APKs without stripping issues.
 3. **Debug Keystore Encryption**:
    - Keystores created with newer JDKs (Java 17/21/25) default to `HmacPBESHA256`, unsupported by older Java 11 runtimes. Ensure `~/.android/debug.keystore` is generated using Java 11.
 4. **Secrets & Credentials**:
