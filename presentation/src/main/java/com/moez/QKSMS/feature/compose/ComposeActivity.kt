@@ -230,10 +230,25 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                 && state.query.isEmpty()
         toolbar.menu.findItem(R.id.info)?.isVisible = !state.editingMode && state.selectedMessages == 0
                 && state.query.isEmpty()
-        toolbar.menu.findItem(R.id.copy)?.isVisible = !state.editingMode && state.selectedMessages > 0
-        toolbar.menu.findItem(R.id.details)?.isVisible = !state.editingMode && state.selectedMessages == 1
-        toolbar.menu.findItem(R.id.delete)?.isVisible = !state.editingMode && state.selectedMessages > 0
-        toolbar.menu.findItem(R.id.forward)?.isVisible = !state.editingMode && state.selectedMessages == 1
+        val copyItem = toolbar.menu.findItem(R.id.copy)
+        val forwardItem = toolbar.menu.findItem(R.id.forward)
+        val detailsItem = toolbar.menu.findItem(R.id.details)
+        val deleteItem = toolbar.menu.findItem(R.id.delete)
+
+        copyItem?.isVisible = !state.editingMode && state.selectedMessages > 0
+        forwardItem?.isVisible = !state.editingMode && state.selectedMessages == 1
+        detailsItem?.isVisible = !state.editingMode && state.selectedMessages == 1
+        deleteItem?.isVisible = !state.editingMode && state.selectedMessages > 0
+
+        if (state.selectedMessages == 1) {
+            copyItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            forwardItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            detailsItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            deleteItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        } else if (state.selectedMessages > 1) {
+            copyItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            deleteItem?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        }
         toolbar.menu.findItem(R.id.previous)?.isVisible = state.selectedMessages == 0 && state.query.isNotEmpty()
         toolbar.menu.findItem(R.id.next)?.isVisible = state.selectedMessages == 0 && state.query.isNotEmpty()
         toolbar.menu.findItem(R.id.clear)?.isVisible = state.selectedMessages == 0 && state.query.isNotEmpty()
