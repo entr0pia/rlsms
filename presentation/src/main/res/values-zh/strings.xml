@@ -151,6 +151,13 @@
     <string name="backup_location_summary">Set folder</string>
     <string name="backup_restore_title">還原</string>
     <string name="backup_restore_summary">選擇備份</string>
+    <string name="backup_clean_duplicates_title">清理重複簡訊</string>
+    <string name="backup_clean_duplicates_summary">掃描並清除內容與時間完全相同的重複簡訊</string>
+    <string name="backup_clean_duplicates_confirm_title">清理重複簡訊</string>
+    <string name="backup_clean_duplicates_confirm_message">將掃描手機中所有時間、號碼和內容完全相同的重複簡訊，每組僅保留一條。是否繼續？</string>
+    <string name="backup_clean_duplicates_success">清理完成，共刪除了 %1$d 條重複簡訊</string>
+    <string name="backup_clean_duplicates_none">未發現重複簡訊</string>
+    <string name="backup_clean_duplicates_cleaning">正在清理重複簡訊&#8230;</string>
     <string name="backup_restore_error_plus">請解鎖 RLSMS+ 以使用備份和還原功能</string>
     <string name="backup_restore_error_backup">正在進行備份&#8230;</string>
     <string name="backup_restore_error_restore">正在進行還原&#8230;</string>

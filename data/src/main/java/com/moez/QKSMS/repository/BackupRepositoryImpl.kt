@@ -19,6 +19,7 @@
 package com.moez.QKSMS.repository
 
 import android.annotation.SuppressLint
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -33,6 +34,8 @@ import com.moez.QKSMS.model.Message
 import com.moez.QKSMS.util.Preferences
 import com.squareup.moshi.Moshi
 import io.reactivex.Observable
+import io.reactivex.Single
+import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.Subject
 import io.realm.Realm
@@ -206,17 +209,49 @@ class BackupRepositoryImpl @Inject constructor(
         val messageCount = backup?.messages?.size ?: 0
         var errorCount = 0
 
-        backup?.messages?.forEachIndexed { index, message ->
+        val messages = backup?.messages ?: emptyList()
+        val canUseSubId = prefs.canUseSubId.get()
+        val batchSize = 100
+        var processedCount = 0
+
+        val existingSignatures = HashSet<String>()
+        try {
+            context.contentResolver.query(
+                    Telephony.Sms.CONTENT_URI,
+                    arrayOf(Telephony.Sms.DATE, Telephony.Sms.BODY),
+                    null,
+                    null,
+                    null
+            )?.use { cursor ->
+                val dateCol = cursor.getColumnIndex(Telephony.Sms.DATE)
+                val bodyCol = cursor.getColumnIndex(Telephony.Sms.BODY)
+                while (cursor.moveToNext()) {
+                    val date = if (dateCol != -1) cursor.getLong(dateCol) else 0L
+                    val body = if (bodyCol != -1) cursor.getString(bodyCol) ?: "" else ""
+                    existingSignatures.add("$date|$body")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to query existing SMS for deduplication")
+        }
+
+        // Deduplicate messages against existing ones and within the backup itself
+        val toRestoreMessages = messages.filter { message ->
+            val sig = "${message.date}|${message.body}"
+            existingSignatures.add(sig)
+        }
+
+        val toRestoreCount = toRestoreMessages.size
+        restoreProgress.onNext(BackupRepository.Progress.Running(toRestoreCount, 0))
+
+        for (chunk in toRestoreMessages.chunked(batchSize)) {
             if (stopFlag) {
                 stopFlag = false
                 restoreProgress.onNext(BackupRepository.Progress.Idle())
                 return
             }
 
-            // Update the progress
-            restoreProgress.onNext(BackupRepository.Progress.Running(messageCount, index))
-
-            try {
+            val valuesList = chunk.map { message ->
                 val values = contentValuesOf(
                         Telephony.Sms.TYPE to message.type,
                         Telephony.Sms.ADDRESS to message.address,
@@ -231,19 +266,36 @@ class BackupRepositoryImpl @Inject constructor(
                         Telephony.Sms.LOCKED to message.locked
                 )
 
-                if (prefs.canUseSubId.get()) {
+                if (canUseSubId) {
                     values.put(Telephony.Sms.SUBSCRIPTION_ID, message.subId)
                 }
 
-                context.contentResolver.insert(Telephony.Sms.CONTENT_URI, values)
-            } catch (e: Exception) {
-                Timber.w(e)
-                errorCount++
+                values
             }
+
+            try {
+                val inserted = context.contentResolver.bulkInsert(Telephony.Sms.CONTENT_URI, valuesList.toTypedArray())
+                if (inserted < valuesList.size) {
+                    errorCount += (valuesList.size - inserted)
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "bulkInsert failed for batch of ${valuesList.size}, falling back to single inserts")
+                for (values in valuesList) {
+                    try {
+                        context.contentResolver.insert(Telephony.Sms.CONTENT_URI, values)
+                    } catch (singleError: Exception) {
+                        Timber.w(singleError)
+                        errorCount++
+                    }
+                }
+            }
+
+            processedCount += chunk.size
+            restoreProgress.onNext(BackupRepository.Progress.Running(toRestoreCount, processedCount))
         }
 
         if (errorCount > 0) {
-            Timber.w(Exception("Failed to backup $errorCount/$messageCount messages"))
+            Timber.w(Exception("Failed to restore $errorCount/$toRestoreCount messages"))
         }
 
         // Sync the messages
@@ -259,6 +311,75 @@ class BackupRepositoryImpl @Inject constructor(
 
     override fun stopRestore() {
         stopFlag = true
+    }
+
+    override fun deleteDuplicateMessages(): Single<Int> {
+        return Single.fromCallable {
+            val toDeleteIds = mutableListOf<Long>()
+            val seenSignatures = HashSet<String>()
+
+            val projection = arrayOf(
+                    Telephony.Sms._ID,
+                    Telephony.Sms.ADDRESS,
+                    Telephony.Sms.DATE,
+                    Telephony.Sms.BODY
+            )
+
+            // Query SMS sorted by date ascending, then _id ascending so we keep the first original copy
+            context.contentResolver.query(
+                    Telephony.Sms.CONTENT_URI,
+                    projection,
+                    null,
+                    null,
+                    "${Telephony.Sms.DATE} ASC, ${Telephony.Sms._ID} ASC"
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndex(Telephony.Sms._ID)
+                val addressCol = cursor.getColumnIndex(Telephony.Sms.ADDRESS)
+                val dateCol = cursor.getColumnIndex(Telephony.Sms.DATE)
+                val bodyCol = cursor.getColumnIndex(Telephony.Sms.BODY)
+
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
+                    val address = if (addressCol != -1) cursor.getString(addressCol) ?: "" else ""
+                    val date = if (dateCol != -1) cursor.getLong(dateCol) else 0L
+                    val body = if (bodyCol != -1) cursor.getString(bodyCol) ?: "" else ""
+
+                    val signature = "$address|$date|$body"
+                    if (!seenSignatures.add(signature)) {
+                        // Already seen: this is a duplicate
+                        toDeleteIds.add(id)
+                    }
+                }
+            }
+
+            var deletedCount = 0
+            if (toDeleteIds.isNotEmpty()) {
+                val batchSize = 100
+                for (chunk in toDeleteIds.chunked(batchSize)) {
+                    val where = "${Telephony.Sms._ID} IN (${chunk.joinToString(",")})"
+                    try {
+                        val count = context.contentResolver.delete(Telephony.Sms.CONTENT_URI, where, null)
+                        deletedCount += count
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to bulk delete duplicate SMS batch")
+                        for (singleId in chunk) {
+                            try {
+                                val singleUri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, singleId)
+                                val count = context.contentResolver.delete(singleUri, null, null)
+                                deletedCount += count
+                            } catch (singleErr: Exception) {
+                                Timber.w(singleErr)
+                            }
+                        }
+                    }
+                }
+
+                // Sync messages to update local Realm DB immediately
+                syncRepo.syncMessages()
+            }
+
+            deletedCount
+        }.subscribeOn(Schedulers.io())
     }
 
     private fun isBackupOrRestoreRunning(): Boolean {

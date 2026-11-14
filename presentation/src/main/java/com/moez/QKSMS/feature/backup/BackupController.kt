@@ -39,6 +39,7 @@ import com.moez.QKSMS.common.util.extensions.setPositiveButton
 import com.moez.QKSMS.common.util.extensions.setShowing
 import com.moez.QKSMS.common.util.extensions.setTint
 import com.moez.QKSMS.common.widget.PreferenceView
+import com.moez.QKSMS.common.widget.QkDialog
 import com.moez.QKSMS.injection.appComponent
 import com.moez.QKSMS.repository.BackupRepository
 import io.reactivex.Observable
@@ -65,6 +66,7 @@ class BackupController : QkController<BackupView, BackupState, BackupPresenter>(
 
     private val documentTreeSelectedSubject: Subject<Uri> = PublishSubject.create()
     private val documentSelectedSubject: Subject<Uri> = PublishSubject.create()
+    private val cleanDuplicatesConfirmSubject: Subject<Unit> = PublishSubject.create()
 
     private val stopRestoreDialog by lazy {
         AlertDialog.Builder(activity!!)
@@ -242,6 +244,37 @@ class BackupController : QkController<BackupView, BackupState, BackupPresenter>(
         openDocument.launch(QkActivityResultContracts.OpenDocumentParams(
                 mimeTypes = listOf("application/json", "application/octet-stream"),
                 initialUri = initialUri))
+    }
+
+    override fun cleanDuplicatesClicks(): Observable<*> = cleanDuplicates.clicks()
+
+    override fun cleanDuplicatesConfirmClicks(): Observable<*> = cleanDuplicatesConfirmSubject
+
+    override fun showCleanDuplicatesConfirmDialog() {
+        val act = activity ?: return
+        if (act.isFinishing || act.isDestroyed) return
+        QkDialog(act).apply {
+            titleRes = R.string.backup_clean_duplicates_confirm_title
+            subtitleRes = R.string.backup_clean_duplicates_confirm_message
+            positiveButton = android.R.string.ok
+            positiveButtonListener = { cleanDuplicatesConfirmSubject.onNext(Unit) }
+            negativeButton = android.R.string.cancel
+        }.show()
+    }
+
+    override fun showCleanDuplicatesResult(deletedCount: Int) {
+        val act = activity ?: return
+        if (act.isFinishing || act.isDestroyed) return
+        val message = if (deletedCount > 0) {
+            act.getString(R.string.backup_clean_duplicates_success, deletedCount)
+        } else {
+            act.getString(R.string.backup_clean_duplicates_none)
+        }
+        QkDialog(act).apply {
+            titleRes = R.string.backup_clean_duplicates_title
+            subtitle = message
+            positiveButton = android.R.string.ok
+        }.show()
     }
 
 }

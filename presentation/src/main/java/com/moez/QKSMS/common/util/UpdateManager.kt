@@ -120,7 +120,7 @@ class UpdateManager @Inject constructor(
         }
 
         val cleanTag = tagName
-        val apkDownloadUrl = "https://github.com/entr0pia/rlsms/releases/download/$cleanTag/RLSMS-$cleanTag-noAnalytics-release.apk"
+        val apkDownloadUrl = extractApkUrl(cleanTag)
         val hasUpdate = isNewerVersion(BuildConfig.VERSION_NAME, cleanTag)
 
         return UpdateInfo(
@@ -130,6 +130,34 @@ class UpdateManager @Inject constructor(
             changelog = "",
             downloadUrl = apkDownloadUrl
         )
+    }
+
+    private fun extractApkUrl(cleanTag: String): String {
+        val releasePageUrl = "https://github.com/entr0pia/rlsms/releases/tag/$cleanTag"
+        val assetsUrl = "https://github.com/entr0pia/rlsms/releases/expanded_assets/$cleanTag"
+        return try {
+            val conn = (URL(assetsUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:100.0) Gecko/100.0 Firefox/100.0")
+            }
+            if (conn.responseCode in 200..299) {
+                val html = conn.inputStream.bufferedReader().use { it.readText() }
+                val regex = Regex("""href=["'](/[^"']+/releases/download/[^"']+\.apk)["']""", RegexOption.IGNORE_CASE)
+                val match = regex.find(html)
+                if (match != null) {
+                    "https://github.com" + match.groupValues[1]
+                } else {
+                    releasePageUrl
+                }
+            } else {
+                releasePageUrl
+            }
+        } catch (e: Throwable) {
+            Timber.w(e, "Failed to extract APK download URL from expanded_assets")
+            releasePageUrl
+        }
     }
 
     fun showUpdateDialog(activity: Activity, updateInfo: UpdateInfo) {

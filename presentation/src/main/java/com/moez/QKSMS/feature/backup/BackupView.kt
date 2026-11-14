@@ -25,6 +25,7 @@ import io.reactivex.Observable
 interface BackupView : QkViewContract<BackupState> {
     fun setBackupLocationClicks(): Observable<*>
     fun restoreClicks(): Observable<*>
+    fun cleanDuplicatesClicks(): Observable<*>
 
     fun backupClicks(): Observable<*>
 
@@ -45,4 +46,8 @@ interface BackupView : QkViewContract<BackupState> {
 
     fun selectFolder(initialUri: Uri)
     fun selectFile(initialUri: Uri)
+
+    fun cleanDuplicatesConfirmClicks(): Observable<*>
+    fun showCleanDuplicatesConfirmDialog()
+    fun showCleanDuplicatesResult(deletedCount: Int)
 }

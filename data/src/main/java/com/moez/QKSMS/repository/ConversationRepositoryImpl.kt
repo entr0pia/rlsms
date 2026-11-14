@@ -158,6 +158,7 @@ class ConversationRepositoryImpl @Inject constructor(
             matchingMessages
                     .asSequence()
                     .filter { message -> conversationsMap.containsKey(message.threadId) }
+                    .distinctBy { message -> Triple(message.threadId, message.date, message.body) }
                     .map { message ->
                         SearchResult(
                                 query = normalizedQuery,
@@ -173,11 +174,12 @@ class ConversationRepositoryImpl @Inject constructor(
                     .groupBy { it.threadId }
                     .filter { (threadId, _) -> conversationsMap.containsKey(threadId) }
                     .map { (threadId, msgs) ->
-                        val latestMessage = msgs.maxBy { it.date } ?: msgs.first()
+                        val distinctMsgs = msgs.distinctBy { Triple(it.threadId, it.date, it.body) }
+                        val latestMessage = distinctMsgs.maxBy { it.date } ?: distinctMsgs.first()
                         SearchResult(
                                 query = normalizedQuery,
                                 conversation = conversationsMap.getValue(threadId),
-                                messages = msgs.size,
+                                messages = distinctMsgs.size,
                                 message = latestMessage
                         )
                     }

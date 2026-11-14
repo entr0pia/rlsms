@@ -30,8 +30,8 @@ android {
         applicationId "com.entr0pia.RLSMS"
         minSdkVersion 23
         targetSdkVersion 33
-        versionCode 2231
-        versionName "3.11.1"
+        versionCode 2232
+        versionName "3.11.2"
         setProperty("archivesBaseName", "RLSMS-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

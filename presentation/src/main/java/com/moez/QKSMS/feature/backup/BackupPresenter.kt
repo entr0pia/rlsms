@@ -86,6 +86,22 @@ class BackupPresenter @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe()
 
+        view.cleanDuplicatesClicks()
+                .autoDisposable(view.scope())
+                .subscribe { view.showCleanDuplicatesConfirmDialog() }
+
+        view.cleanDuplicatesConfirmClicks()
+                .doOnNext { context.makeToast(R.string.backup_clean_duplicates_cleaning) }
+                .observeOn(Schedulers.io())
+                .flatMapSingle { backupRepo.deleteDuplicateMessages() }
+                .observeOn(AndroidSchedulers.mainThread())
+                .autoDisposable(view.scope())
+                .subscribe({ count ->
+                    view.showCleanDuplicatesResult(count)
+                }, { error ->
+                    Timber.e(error, "Failed to clean duplicate messages")
+                })
+
         view.backupClicks()
                 .withLatestFrom(billingManager.upgradeStatus) { _, upgraded -> upgraded }
                 .autoDisposable(view.scope())

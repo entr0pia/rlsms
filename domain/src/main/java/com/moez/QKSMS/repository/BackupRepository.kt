@@ -22,6 +22,7 @@ import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import com.moez.QKSMS.model.BackupFile
 import io.reactivex.Observable
+import io.reactivex.Single
 
 interface BackupRepository {
 
@@ -53,5 +54,7 @@ interface BackupRepository {
     fun getRestoreProgress(): Observable<Progress>
 
     fun stopRestore()
+
+    fun deleteDuplicateMessages(): Single<Int>
 
 }
