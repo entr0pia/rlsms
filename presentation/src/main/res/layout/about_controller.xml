@@ -41,6 +41,22 @@
             tools:summary="3.0.8" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/checkUpdate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:title="@string/about_check_update_title" />
+
+        <ProgressBar
+            android:id="@+id/updateProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="-3dp"
+            android:indeterminate="true"
+            android:indeterminateTint="?android:attr/textColorTertiary"
+            android:visibility="gone" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/developer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

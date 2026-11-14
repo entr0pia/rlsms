@@ -286,6 +286,12 @@
     </plurals>
     <string name="about_title">关于</string>
     <string name="about_version_title">版本</string>
+    <string name="about_check_update_title">检查更新</string>
+    <string name="about_update_new_version">发现新版本 %s</string>
+    <string name="about_update_download">立即下载</string>
+    <string name="about_update_later">稍后再说</string>
+    <string name="about_update_current_latest">当前已是最新版本 (%s)</string>
+    <string name="about_update_failed">无法连接至 GitHub，请检查网络设置。</string>
     <string name="about_developer_title">开发人员</string>
     <string name="about_source_title">源代码</string>
     <string name="about_changelog_title">更新日志</string>

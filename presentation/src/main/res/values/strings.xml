@@ -323,6 +323,12 @@
 
     <string name="about_title">About</string>
     <string name="about_version_title">Version</string>
+    <string name="about_check_update_title">Check for updates</string>
+    <string name="about_update_new_version">New version available: %s</string>
+    <string name="about_update_download">Download</string>
+    <string name="about_update_later">Later</string>
+    <string name="about_update_current_latest">You already have the latest version (%s)</string>
+    <string name="about_update_failed">Failed to check for updates. Please check your network connection.</string>
     <string name="about_developer_title">Developer</string>
     <string name="about_source_title">Source code</string>
     <string name="about_changelog_title">Changelog</string>

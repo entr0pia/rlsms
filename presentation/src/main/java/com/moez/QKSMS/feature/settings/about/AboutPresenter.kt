@@ -21,12 +21,15 @@ package com.moez.QKSMS.feature.settings.about
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
 import com.moez.QKSMS.common.base.QkPresenter
+import com.moez.QKSMS.common.util.UpdateManager
 import com.uber.autodispose.android.lifecycle.scope
 import com.uber.autodispose.autoDisposable
+import io.reactivex.android.schedulers.AndroidSchedulers
 import javax.inject.Inject
 
 class AboutPresenter @Inject constructor(
-    private val navigator: Navigator
+    private val navigator: Navigator,
+    private val updateManager: UpdateManager
 ) : QkPresenter<AboutView, Unit>(Unit) {
 
     override fun bindIntents(view: AboutView) {
@@ -36,6 +39,26 @@ class AboutPresenter @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe { preference ->
                     when (preference.id) {
+                        R.id.checkUpdate -> {
+                            view.setUpdateProgressVisible(true)
+                            updateManager.checkForUpdate()
+                                    .observeOn(AndroidSchedulers.mainThread())
+                                    .autoDisposable(view.scope())
+                                    .subscribe({ updateInfo ->
+                                        view.setUpdateProgressVisible(false)
+                                        val activity = (view as? AboutController)?.activity ?: return@subscribe
+                                        if (updateInfo.hasUpdate) {
+                                            updateManager.showUpdateDialog(activity, updateInfo)
+                                        } else {
+                                            updateManager.showNoUpdateDialog(activity)
+                                        }
+                                    }, { error ->
+                                        view.setUpdateProgressVisible(false)
+                                        val activity = (view as? AboutController)?.activity ?: return@subscribe
+                                        updateManager.showCheckUpdateErrorDialog(activity)
+                                    })
+                        }
+
                         R.id.developer -> navigator.showDeveloper()
 
                         R.id.source -> navigator.showSourceCode()

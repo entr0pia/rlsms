@@ -55,6 +55,11 @@ class AboutController : QkController<AboutView, Unit, AboutPresenter>(), AboutVi
             .map { preference -> preference.clicks().map { preference } }
             .let { preferences -> Observable.merge(preferences) }
 
+    override fun setUpdateProgressVisible(visible: Boolean) {
+        updateProgress.visibility = if (visible) View.VISIBLE else View.GONE
+        checkUpdate.isEnabled = !visible
+    }
+
     override fun render(state: Unit) {
         // No special rendering required
     }

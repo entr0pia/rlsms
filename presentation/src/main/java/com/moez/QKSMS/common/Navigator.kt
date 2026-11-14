@@ -213,20 +213,8 @@ class Navigator @Inject constructor(
     }
 
     fun showSupport() {
-        val intent = Intent(Intent.ACTION_SENDTO)
-        intent.data = Uri.parse("mailto:")
-        intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("jiangpeyton@gmail.com"))
-        intent.putExtra(Intent.EXTRA_SUBJECT, "RLSMS Support")
-        intent.putExtra(Intent.EXTRA_TEXT, StringBuilder("\n\n")
-                .append("\n\n--- Please write your message above this line ---\n\n")
-                .append("Package: ${context.packageName}\n")
-                .append("Version: ${BuildConfig.VERSION_NAME}\n")
-                .append("Device: ${Build.BRAND} ${Build.MODEL}\n")
-                .append("SDK: ${Build.VERSION.SDK_INT}\n")
-                .append("Upgraded"
-                        .takeIf { BuildConfig.FLAVOR != "noAnalytics" }
-                        .takeIf { billingManager.upgradeStatus.blockingFirst() } ?: "")
-                .toString())
+        val url = "https://github.com/entr0pia/rlsms/issues"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         startActivityExternal(intent)
     }
 
