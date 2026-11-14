@@ -6,7 +6,7 @@ Welcome! This document provides technical context, architectural guidelines, and
 
 ## 1. Project Overview
 
-**QKSMS** is a feature-rich, open-source SMS/MMS messaging client for Android, distributed under the GNU General Public License v3.0 (GPLv3).
+**RLSMS** is a feature-rich, modernized open-source SMS/MMS messaging client for Android, forked from **QKSMS** and distributed under the GNU General Public License v3.0 (GPLv3).
 
 ### Key Architecture Patterns
 The project adheres strictly to **Clean Architecture** principles separated across multiple Gradle modules:
@@ -77,7 +77,7 @@ The application defines a single flavor dimension `analytics`:
 
 ## 4. Development Workflow & Commands
 
-All commands below assume execution from the repository root using the Gradle Wrapper. On Windows PowerShell, use `.\gradlew.bat`; on Linux/macOS, use `./gradlew`.
+All commands below assume execution from the repository root using the Gradle Wrapper. Ensure JDK 11 is active in your environment (e.g. `JAVA_HOME` pointing to JDK 11). On Windows PowerShell, use `.\gradlew.bat`; on Linux/macOS, use `./gradlew`.
 
 ### Build Commands
 - **Assemble Debug APK (Recommended)**:
@@ -86,10 +86,11 @@ All commands below assume execution from the repository root using the Gradle Wr
   ```
   *Output APK location*: `presentation/build/outputs/apk/noAnalytics/debug/`
 
-- **Assemble Release APK (with Analytics / Proguard)**:
+- **Assemble Release APK (with Local Signing Keystore)**:
   ```powershell
-  .\gradlew.bat :presentation:assembleWithAnalyticsRelease
+  .\gradlew.bat :presentation:assembleNoAnalyticsRelease
   ```
+  *Output APK location*: `presentation/build/outputs/apk/noAnalytics/release/`
 
 - **Compile Sources & Code Analysis**:
   ```powershell
@@ -126,12 +127,6 @@ All commands below assume execution from the repository root using the Gradle Wr
   .\gradlew.bat connectedNoAnalyticsDebugAndroidTest
   ```
 
-### Code Style & Lint
-- **Run Android Lint**:
-  ```powershell
-  .\gradlew.bat lintNoAnalyticsDebug
-  ```
-
 ---
 
 ## 5. Architectural & Coding Conventions
@@ -157,30 +152,47 @@ All commands below assume execution from the repository root using the Gradle Wr
 - UI components (Controllers, Services, Receivers) obtain injectables through `@Subcomponent` or module definitions under `presentation/src/main/java/com/moez/QKSMS/injection/`.
 
 ### 4. Telephony & Default SMS App Constraints
-- QKSMS functions as an Android Default SMS App.
+- RLSMS functions as an Android Default SMS App.
 - Essential receivers such as `SmsReceiver`, `MmsReceiver`, `HeadlessSmsSendService`, and response action handlers are registered in `presentation/src/main/AndroidManifest.xml`.
 - When modifying message sending or receiving flows, ensure compliance with Android Telephony Provider requirements (Android 4.4+ KitKat and Android 10+ scoped rules).
+
+### 5. High-Performance Backup, Restore & Deduplication
+- **Bulk Insert**: In `BackupRepositoryImpl`, restoring SMS uses `ContentResolver.bulkInsert(Telephony.Sms.CONTENT_URI, ...)` in chunks of 100 messages with fallback to single inserts.
+- **Restore Deduplication**: Messages are deduplicated against existing records via `(date, body)` signatures to prevent message duplication upon multiple restores.
+- **Duplicate Cleaner**: `BackupRepository.deleteDuplicateMessages()` scans and removes duplicate SMS by grouping identical `(address, date, body)` records.
+
+### 6. Robust Update Checking
+- `UpdateManager` implements a dual-channel release checker:
+  1. Primary: GitHub REST API (`api.github.com/repos/entr0pia/rlsms/releases/latest`).
+  2. Fallback: Web 302 redirect on `github.com/entr0pia/rlsms/releases/latest` to bypass GitHub API rate limit (60 requests/hr).
+  3. Asset Resolution: Extracts real APK download URLs dynamically using regex against `expanded_assets`.
 
 ---
 
 ## 6. Important Gotchas for Coding Agents
 
 1. **Gradle & JDK Compatibility (CRITICAL)**:
-   - The project uses Gradle `6.0.1` and AGP `3.5.4`, which are **strictly incompatible with JDK 14+** (fails with Groovy `ReflectionCache` errors on JDK 17+).
-   - **Always run Gradle with JDK 8 or JDK 11**:
-     ```powershell
-     $env:JAVA_HOME = "C:\Users\Peyton\scoop\apps\openjdk11\current"
-     .\gradlew.bat :presentation:assembleNoAnalyticsDebug
-     ```
+   - The project uses Gradle `7.4` and AGP `7.3.1`.
+   - **Always run Gradle with JDK 11** (newer runtimes like JDK 17/21 will fail due to older Gradle/AGP limitations; ensure `JAVA_HOME` points to a valid JDK 11 installation).
 2. **NDK & JNI Symbol Stripping**:
    - In AGP 7.3+, do not disable `strip*DebugSymbols` tasks with `enabled = false` in `afterEvaluate`, because Gradle task dependencies will consider the native output empty, resulting in `librealm-jni.so` being omitted from Release APKs.
    - Using `packagingOptions { doNotStrip '**/*.so' }` allows AGP to properly package all native libraries into Release APKs without stripping issues.
-3. **Debug Keystore Encryption**:
+3. **Local Keystore Configuration**:
+   - Release signing is configured in `local.properties` (which is git-ignored):
+     ```properties
+     RELEASE_STORE_FILE=C:\\path\\to\\your.jks
+     RELEASE_STORE_PASSWORD=***
+     RELEASE_KEY_ALIAS=***
+     RELEASE_KEY_PASSWORD=***
+     ```
+4. **CI/CD Automation (GitHub Actions)**:
+   - Automated release workflow is configured in `.github/workflows/release.yml`. Pushing a tag matching `v*` triggers automatic building, signing via repository secrets, and GitHub Release asset creation.
+5. **Debug Keystore Encryption**:
    - Keystores created with newer JDKs (Java 17/21/25) default to `HmacPBESHA256`, unsupported by older Java 11 runtimes. Ensure `~/.android/debug.keystore` is generated using Java 11.
-4. **Secrets & Credentials**:
-   - `secrets.tar.enc` is an encrypted archive for CI builds containing release signing keystores and official `google-services.json`. Do not attempt to commit decrypted keystores or credentials into git.
-5. **PowerShell Path Separators**:
+6. **Secrets & Credentials**:
+   - Do not commit decrypted keystores, tokens, or credentials into git.
+7. **PowerShell Path Separators**:
    - When executing commands on Windows pwsh, use backslashes `\` for file paths and `;` for command separators. Always prefer `.\gradlew.bat` over `./gradlew`.
-6. **Git Safety**:
+8. **Git Safety**:
    - Do not commit changes without human approval.
    - Do not run `git push` or modify remote branch configurations automatically.

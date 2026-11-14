@@ -39,6 +39,7 @@ import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.Subject
 import io.realm.Realm
+import io.realm.Sort
 import okio.buffer
 import okio.source
 import timber.log.Timber
@@ -214,7 +215,7 @@ class BackupRepositoryImpl @Inject constructor(
         val batchSize = 100
         var processedCount = 0
 
-        val existingSignatures = HashSet<String>()
+        val existingSmsByBody = HashMap<String, MutableList<Long>>()
         try {
             context.contentResolver.query(
                     Telephony.Sms.CONTENT_URI,
@@ -227,18 +228,28 @@ class BackupRepositoryImpl @Inject constructor(
                 val bodyCol = cursor.getColumnIndex(Telephony.Sms.BODY)
                 while (cursor.moveToNext()) {
                     val date = if (dateCol != -1) cursor.getLong(dateCol) else 0L
-                    val body = if (bodyCol != -1) cursor.getString(bodyCol) ?: "" else ""
-                    existingSignatures.add("$date|$body")
+                    val body = if (bodyCol != -1) cursor.getString(bodyCol)?.trim() ?: "" else ""
+                    if (body.isNotEmpty()) {
+                        existingSmsByBody.getOrPut(body) { mutableListOf() }.add(date)
+                    }
                 }
             }
         } catch (e: Exception) {
             Timber.w(e, "Failed to query existing SMS for deduplication")
         }
 
-        // Deduplicate messages against existing ones and within the backup itself
+        // Deduplicate messages against existing ones within 2 seconds tolerance, and within backup
         val toRestoreMessages = messages.filter { message ->
-            val sig = "${message.date}|${message.body}"
-            existingSignatures.add(sig)
+            val body = message.body.trim()
+            if (body.isEmpty()) return@filter true
+            val dates = existingSmsByBody.getOrPut(body) { mutableListOf() }
+            val isDuplicate = dates.any { existingDate -> Math.abs(existingDate - message.date) <= 2000L }
+            if (isDuplicate) {
+                false
+            } else {
+                dates.add(message.date)
+                true
+            }
         }
 
         val toRestoreCount = toRestoreMessages.size
@@ -315,70 +326,98 @@ class BackupRepositoryImpl @Inject constructor(
 
     override fun deleteDuplicateMessages(): Single<Int> {
         return Single.fromCallable {
-            val toDeleteIds = mutableListOf<Long>()
-            val seenSignatures = HashSet<String>()
+            val toDeleteSmsContentIds = mutableListOf<Long>()
+            val toDeleteMmsContentIds = mutableListOf<Long>()
+            val toDeleteRealmIds = mutableListOf<Long>()
 
-            val projection = arrayOf(
-                    Telephony.Sms._ID,
-                    Telephony.Sms.ADDRESS,
-                    Telephony.Sms.DATE,
-                    Telephony.Sms.BODY
-            )
+            val realm = Realm.getDefaultInstance()
+            realm.use { r ->
+                val allMessages = r.where(Message::class.java)
+                        .sort("date", Sort.ASCENDING)
+                        .findAll()
 
-            // Query SMS sorted by date ascending, then _id ascending so we keep the first original copy
-            context.contentResolver.query(
-                    Telephony.Sms.CONTENT_URI,
-                    projection,
-                    null,
-                    null,
-                    "${Telephony.Sms.DATE} ASC, ${Telephony.Sms._ID} ASC"
-            )?.use { cursor ->
-                val idCol = cursor.getColumnIndex(Telephony.Sms._ID)
-                val addressCol = cursor.getColumnIndex(Telephony.Sms.ADDRESS)
-                val dateCol = cursor.getColumnIndex(Telephony.Sms.DATE)
-                val bodyCol = cursor.getColumnIndex(Telephony.Sms.BODY)
+                val groupedByThread = allMessages.groupBy { it.threadId }
 
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idCol)
-                    val address = if (addressCol != -1) cursor.getString(addressCol) ?: "" else ""
-                    val date = if (dateCol != -1) cursor.getLong(dateCol) else 0L
-                    val body = if (bodyCol != -1) cursor.getString(bodyCol) ?: "" else ""
+                for ((_, messagesInThread) in groupedByThread) {
+                    val seenMessages = mutableListOf<Message>()
 
-                    val signature = "$address|$date|$body"
-                    if (!seenSignatures.add(signature)) {
-                        // Already seen: this is a duplicate
-                        toDeleteIds.add(id)
+                    for (msg in messagesInThread) {
+                        val body = msg.getSummary().trim()
+                        if (body.isEmpty()) continue
+
+                        // Check if an identical message exists in the same thread within 2 seconds window
+                        val isDuplicate = seenMessages.any { seen ->
+                            seen.getSummary().trim() == body &&
+                            Math.abs(seen.date - msg.date) <= 2000L
+                        }
+
+                        if (isDuplicate) {
+                            toDeleteRealmIds.add(msg.id)
+                            if (msg.isMms()) {
+                                toDeleteMmsContentIds.add(msg.contentId)
+                            } else {
+                                toDeleteSmsContentIds.add(msg.contentId)
+                            }
+                        } else {
+                            seenMessages.add(msg)
+                        }
                     }
                 }
             }
 
             var deletedCount = 0
-            if (toDeleteIds.isNotEmpty()) {
-                val batchSize = 100
-                for (chunk in toDeleteIds.chunked(batchSize)) {
+
+            // 1. Delete system SMS duplicates
+            if (toDeleteSmsContentIds.isNotEmpty()) {
+                for (chunk in toDeleteSmsContentIds.chunked(100)) {
                     val where = "${Telephony.Sms._ID} IN (${chunk.joinToString(",")})"
                     try {
                         val count = context.contentResolver.delete(Telephony.Sms.CONTENT_URI, where, null)
                         deletedCount += count
                     } catch (e: Exception) {
-                        Timber.w(e, "Failed to bulk delete duplicate SMS batch")
-                        for (singleId in chunk) {
+                        Timber.w(e, "Bulk delete SMS failed, falling back to single delete")
+                        for (id in chunk) {
                             try {
-                                val singleUri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, singleId)
-                                val count = context.contentResolver.delete(singleUri, null, null)
-                                deletedCount += count
-                            } catch (singleErr: Exception) {
-                                Timber.w(singleErr)
+                                val uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id)
+                                deletedCount += context.contentResolver.delete(uri, null, null)
+                            } catch (singleE: Exception) {
+                                Timber.w(singleE)
                             }
                         }
                     }
                 }
+            }
 
-                // Sync messages to update local Realm DB immediately
+            // 2. Delete system MMS duplicates
+            if (toDeleteMmsContentIds.isNotEmpty()) {
+                for (id in toDeleteMmsContentIds) {
+                    try {
+                        val uri = ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, id)
+                        val count = context.contentResolver.delete(uri, null, null)
+                        deletedCount += count
+                    } catch (e: Exception) {
+                        Timber.w(e, "Delete MMS failed for id $id")
+                    }
+                }
+            }
+
+            // 3. Delete from Realm database directly
+            if (toDeleteRealmIds.isNotEmpty()) {
+                val r = Realm.getDefaultInstance()
+                r.executeTransaction { bgRealm ->
+                    for (realmId in toDeleteRealmIds) {
+                        bgRealm.where(Message::class.java).equalTo("id", realmId).findFirst()?.deleteFromRealm()
+                    }
+                }
+                r.close()
+            }
+
+            // 4. Trigger sync to refresh conversation snippets and lastMessages
+            if (deletedCount > 0 || toDeleteRealmIds.isNotEmpty()) {
                 syncRepo.syncMessages()
             }
 
-            deletedCount
+            maxOf(deletedCount, toDeleteRealmIds.size)
         }.subscribeOn(Schedulers.io())
     }
 

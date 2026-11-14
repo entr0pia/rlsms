@@ -257,7 +257,10 @@ class BackupController : QkController<BackupView, BackupState, BackupPresenter>(
             titleRes = R.string.backup_clean_duplicates_confirm_title
             subtitleRes = R.string.backup_clean_duplicates_confirm_message
             positiveButton = android.R.string.ok
-            positiveButtonListener = { cleanDuplicatesConfirmSubject.onNext(Unit) }
+            positiveButtonListener = {
+                dismiss()
+                cleanDuplicatesConfirmSubject.onNext(Unit)
+            }
             negativeButton = android.R.string.cancel
         }.show()
     }

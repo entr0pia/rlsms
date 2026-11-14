@@ -155,19 +155,29 @@ class ConversationRepositoryImpl @Inject constructor(
         val conversationsMap = conversations.associateBy { it.id }
 
         val messagesResults = if (expandMessages) {
+            val distinctList = mutableListOf<Message>()
             matchingMessages
-                    .asSequence()
                     .filter { message -> conversationsMap.containsKey(message.threadId) }
-                    .distinctBy { message -> Triple(message.threadId, message.date, message.body) }
-                    .map { message ->
-                        SearchResult(
-                                query = normalizedQuery,
-                                conversation = conversationsMap.getValue(message.threadId),
-                                messages = 1,
-                                message = message
-                        )
+                    .forEach { message ->
+                        val body = message.getSummary().trim()
+                        val isDuplicate = distinctList.any { seen ->
+                            seen.threadId == message.threadId &&
+                            seen.getSummary().trim() == body &&
+                            Math.abs(seen.date - message.date) <= 2000L
+                        }
+                        if (!isDuplicate) {
+                            distinctList.add(message)
+                        }
                     }
-                    .toList()
+
+            distinctList.map { message ->
+                SearchResult(
+                        query = normalizedQuery,
+                        conversation = conversationsMap.getValue(message.threadId),
+                        messages = 1,
+                        message = message
+                )
+            }
         } else {
             matchingMessages
                     .asSequence()
